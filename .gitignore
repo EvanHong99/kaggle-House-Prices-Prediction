@@ -1,2 +1,8 @@
 *.zip
 .ipynb_checkpoints/
+data/.ipynb_checkpoints/
+.idea/
+.idea/*
+*/__pycache__/
+logs/
+trained_models/
