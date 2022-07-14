@@ -68,6 +68,9 @@ class Runner(BaseRunner):
                   test_path=myconfigs.VALID_PATH):
 
         def normalization(dataset:pd.DataFrame,smax,smin):
+            if 0 in smax-smin:
+                print(np.where((smax-smin)==0),smax-smin)
+                raise Exception
             return (dataset.iloc[:,:-1]-smin)/(smax-smin)
 
         trainset = MyDataSet(train_path)
@@ -98,14 +101,18 @@ class Runner(BaseRunner):
             # counter+=len(features)
             y = features[:, -1].to(self.device).float()
             x = features[:, :-1].to(self.device).float()
-
+            print("input",x,x.shape)
             pred = self.model(x)
+            print(pred,y)
             mseloss = self.loss_fn(torch.log(pred), torch.log(y))  # 注意加入log
             total_loss += mseloss.cpu().detach().numpy()
+            print(mseloss.cpu().detach().numpy(),total_loss)
 
             self.optimizer.zero_grad()
             mseloss.backward()
             self.optimizer.step()
+
+            break
 
 
             if batch_idx % myconfigs.LOG_PRINT_BATCHS == 0:

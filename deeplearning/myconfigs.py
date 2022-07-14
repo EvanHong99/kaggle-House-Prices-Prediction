@@ -15,7 +15,7 @@ TEST_PATH=u"../data/preprocessed_dummy_test.csv"
 USE_CUDA=True
 TRAIN_EPOCHS=3
 BATCH_SIZE=32
-LR=1e-3
+LR=1e-5
 
 MODEL_SAVE_PATH="../trained_models/mlp/"
 
