@@ -186,5 +186,5 @@ if __name__ == '__main__':
     # runner.train_epochs(myconfigs.TRAIN_EPOCHS)
 
     # gen submission
-    runner.load_model("../trained_models/mlp/mlp_20220715-155838_0.17217.pt")
+    runner.load_model("../trained_models/mlp/mlp_20220715-155740_0.168476.pt")
     runner.gen_submission("../my_submission.csv")

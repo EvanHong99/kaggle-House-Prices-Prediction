@@ -13,7 +13,7 @@ TEST_PATH=u"../data/preprocessed_dummy_test.csv"
 
 # train
 USE_CUDA=True
-TRAIN_EPOCHS=10
+TRAIN_EPOCHS=100
 BATCH_SIZE=32
 LR=1e-1
 
