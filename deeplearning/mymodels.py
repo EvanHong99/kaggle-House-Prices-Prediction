@@ -31,3 +31,17 @@ class MLP(nn.Module):
 
     def forward(self,x):
         return self.layers(x)
+
+    def reset_features(self, in_features=319):
+        self.layers=nn.Sequential(
+            nn.Linear(in_features=in_features,out_features=64),
+            nn.LeakyReLU(),
+            nn.Linear(64,32),
+            nn.LeakyReLU(),
+            nn.Linear(32,1)
+        )
+        # self.layers=nn.Sequential(
+        #     nn.Linear(in_features=in_features,out_features=64),
+        #     nn.LeakyReLU(),
+        #     nn.Linear(64,1)
+        # )

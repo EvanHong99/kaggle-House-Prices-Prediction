@@ -12,6 +12,7 @@ from torch.utils.data import Dataset, DataLoader
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.tensorboard import SummaryWriter
+from sklearn.decomposition import PCA
 
 import myconfigs
 from mytools import *
@@ -52,13 +53,15 @@ class BaseRunner(object):
 
 class Runner(BaseRunner):
 
-    def __init__(self,pretrained_model=None):
+    def __init__(self,pretrained_model=None,use_pca=False):
         super().__init__()
         self.device = get_device()
         self.epochs = myconfigs.TRAIN_EPOCHS
         self.lr = myconfigs.LR
 
-        self.model = MLP().to(device=self.device)
+        self.features=0 # 特征数量
+        self.load_data(use_pca=use_pca)
+        self.model = MLP(in_features=self.features).to(device=self.device)
         if pretrained_model:# 用于加载checkpoint
             self.model=torch.load(pretrained_model)
         self.loss_fn = nn.MSELoss()
@@ -67,31 +70,60 @@ class Runner(BaseRunner):
 
         self.writer=SummaryWriter(log_dir="../logs/mlplogs/",comment=f'MLP')
 
+
     def load_model(self,model_path):
         self.model = torch.load(model_path)
 
+    def normalization(self,dataset:pd.DataFrame,smax,smin):
+        process_col=np.where((smax - smin) != 0)[0]
+        dataset.iloc[:,process_col]=(dataset.iloc[:,process_col]-smin[process_col])/(smax[process_col]-smin[process_col])
+        return dataset
+
     def load_data(self, train_path=myconfigs.TRAIN_PATH, valid_path=myconfigs.VALID_PATH,
-                  test_path=myconfigs.TEST_PATH):
+                  test_path=myconfigs.TEST_PATH,use_pca=False):
 
-        def normalization(dataset:pd.DataFrame,smax,smin):
-            process_col=np.where((smax - smin) != 0)[0]
-            dataset.iloc[:,process_col]=(dataset.iloc[:,process_col]-smin[process_col])/(smax[process_col]-smin[process_col])
-            return dataset
-
-        trainset = MyDataSet(train_path)
-        validset = MyDataSet(valid_path)
+        self.trainset = MyDataSet(train_path)
+        self.validset = MyDataSet(valid_path)
         self.testset = MyDataSet(test_path)
+        self.features=len(self.validset.data.columns.values)-1
 
         # normalization
-        alldata=trainset.data.append(validset.data).append(self.testset.data)
+        alldata=self.trainset.data.append(self.validset.data).append(self.testset.data)
         scalar_max=alldata.max().values[:-1]
         scalar_min=alldata.min().values[:-1]
-        trainset.data.iloc[:,:-1]=normalization(trainset.data.iloc[:,:-1],scalar_max,scalar_min)
-        validset.data.iloc[:,:-1]=normalization(validset.data.iloc[:,:-1],scalar_max,scalar_min)
-        self.testset.data.iloc[:,:-1]=normalization(self.testset.data.iloc[:,:-1],scalar_max,scalar_min)
-        self.trainloader = DataLoader(trainset, batch_size=myconfigs.BATCH_SIZE, shuffle=True, drop_last=False)
-        self.validloader = DataLoader(validset, batch_size=myconfigs.BATCH_SIZE, shuffle=False, drop_last=False)
+        self.trainset.data.iloc[:,:-1]=self.normalization(self.trainset.data.iloc[:,:-1],scalar_max,scalar_min)
+        self.validset.data.iloc[:,:-1]=self.normalization(self.validset.data.iloc[:,:-1],scalar_max,scalar_min)
+        self.testset.data.iloc[:,:-1]=self.normalization(self.testset.data.iloc[:,:-1],scalar_max,scalar_min)
+
+        if use_pca:
+            print("pca processing")
+            alldata = self.trainset.data.append(self.validset.data).append(self.testset.data)
+            y=alldata["SalePrice"]
+            pca = PCA(n_components='mle')
+            tempdata=pca.fit_transform(alldata.iloc[:,:-1])
+            # print(tempdata.shape)
+            idx1=len(self.trainset.data)
+            idx2=idx1+len(self.validset.data)
+            self.trainset.data=pd.DataFrame(index=alldata.index[:idx1],columns=range(tempdata.shape[1]),data=tempdata[:idx1])
+            self.validset.data =pd.DataFrame(index=alldata.index[idx1:idx2],columns=range(tempdata.shape[1]),data=tempdata[idx1:idx2])
+            self.testset.data =pd.DataFrame(index=alldata.index[idx2:],columns=range(tempdata.shape[1]),data=tempdata[idx2:])
+            self.trainset.data['SalePrice'] =y[:idx1]
+            self.validset.data['SalePrice'] =y[idx1:idx2]
+            self.testset.data['SalePrice'] =y[idx2:]
+
+            self.features=len(self.validset.data.columns.values)-1
+
+        self.trainloader = DataLoader(self.trainset, batch_size=myconfigs.BATCH_SIZE, shuffle=True, drop_last=False)
+        self.validloader = DataLoader(self.validset, batch_size=myconfigs.BATCH_SIZE, shuffle=False, drop_last=False)
         self.testloader = DataLoader(self.testset, batch_size=myconfigs.BATCH_SIZE, shuffle=False, drop_last=False)
+
+        # print(len(self.trainset),len(self.validset),len(self.testset))
+        # print((self.trainset.data),(self.validset.data),(self.testset.data))
+
+    def save_data(self,prefix):
+        self.trainset.data.to_csv(f"../data/{prefix}_train.csv")
+        self.validset.data.to_csv(f"../data/{prefix}_valid.csv")
+        self.testset.data.to_csv(f"../data/{prefix}_test.csv")
 
 
     def save_model(self,path):
@@ -178,13 +210,15 @@ class Runner(BaseRunner):
         self.testset.data["SalePrice"].to_csv(output_file)
 
 if __name__ == '__main__':
-    runner=Runner()
-    # runner=Runner(u"../trained_models/mlp/mlp_20220715-141852_0.398807.pt")
-    runner.load_data()
+    # runner=Runner(use_pca=True)
+    runner=Runner("../trained_models/mlp/mlp_20220715-180912_0.167102.pt",use_pca=False)
+
+    # save
+    # runner.save_data("temp")
 
     # train
     # runner.train_epochs(myconfigs.TRAIN_EPOCHS)
 
     # gen submission
-    runner.load_model("../trained_models/mlp/mlp_20220715-155740_0.168476.pt")
     runner.gen_submission("../my_submission.csv")
+
