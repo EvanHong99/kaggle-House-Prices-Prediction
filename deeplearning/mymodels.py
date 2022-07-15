@@ -14,7 +14,7 @@ class MLP(nn.Module):
       Multilayer Perceptron for regression.
     """
 
-    def __init__(self, in_features=331):
+    def __init__(self, in_features=319):
         super().__init__()
         self.layers=nn.Sequential(
             nn.Linear(in_features=in_features,out_features=64),
@@ -23,6 +23,11 @@ class MLP(nn.Module):
             nn.LeakyReLU(),
             nn.Linear(32,1)
         )
+        # self.layers=nn.Sequential(
+        #     nn.Linear(in_features=in_features,out_features=64),
+        #     nn.LeakyReLU(),
+        #     nn.Linear(64,1)
+        # )
 
     def forward(self,x):
         return self.layers(x)

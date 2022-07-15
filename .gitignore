@@ -4,5 +4,5 @@ data/.ipynb_checkpoints/
 .idea/
 .idea/*
 */__pycache__/
-logs/
-trained_models/
+logs/mlplogs/*
+trained_models/mlp/*
